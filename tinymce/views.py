@@ -1,22 +1,21 @@
 # Copyright (c) 2008 Joost Cassee
 # Licensed under the terms of the MIT License (see LICENSE.txt)
+import json
 
 import logging
 from django.core import urlresolvers
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from django.shortcuts import render_to_response
-from django.template import RequestContext, loader
+from django.template import RequestContext, loader, TemplateDoesNotExist
 from django.utils.translation import ugettext as _
 from tinymce.compressor import gzip_compressor
 from tinymce.widgets import get_language_config
-try:
-    import json
-except ImportError:
-    from django.utils import simplejson as json
+
 try:
     from django.views.decorators.csrf import csrf_exempt
 except ImportError:
     pass
+
 
 def textareas_js(request, name, lang=None):
     """
@@ -29,14 +28,18 @@ def textareas_js(request, name, lang=None):
         'tinymce/%s_textareas.js' % name,
         '%s/tinymce_textareas.js' % name,
     )
-    template = loader.select_template(template_files)
+    try:
+        template = loader.select_template(template_files)
+    except TemplateDoesNotExist:
+        raise Http404("The template couldn't found")
 
     vars = get_language_config(lang)
     vars['content_language'] = lang
     context = RequestContext(request, vars)
 
     return HttpResponse(template.render(context),
-            content_type="application/x-javascript")
+                        content_type="application/x-javascript")
+
 
 def spell_check(request):
     """
@@ -46,7 +49,7 @@ def spell_check(request):
         import enchant
 
         raw = request.raw_post_data
-        input = json.loads(raw)
+        input = simplejson.loads(raw)
         id = input['id']
         method = input['method']
         params = input['params']
@@ -73,12 +76,14 @@ def spell_check(request):
         logging.exception("Error running spellchecker")
         return HttpResponse(_("Error running spellchecker"))
     return HttpResponse(json.dumps(output),
-            content_type='application/json')
+                        content_type='application/json')
+
 
 try:
     spell_check = csrf_exempt(spell_check)
 except NameError:
     pass
+
 
 def preview(request, name):
     """
@@ -90,9 +95,12 @@ def preview(request, name):
         'tinymce/%s_preview.html' % name,
         '%s/tinymce_preview.html' % name,
     )
-    template = loader.select_template(template_files)
-    return HttpResponse(template.render(RequestContext(request)),
-            content_type="text/html")
+    try:
+        template = loader.select_template(template_files)
+        return HttpResponse(template.render(RequestContext(request)),
+                            content_type="text/html")
+    except TemplateDoesNotExist:
+        raise Http404("The template couldn't found")
 
 
 def flatpages_link_list(request):
@@ -101,6 +109,7 @@ def flatpages_link_list(request):
     list of links to flatpages.
     """
     from django.contrib.flatpages.models import FlatPage
+
     link_list = [(page.title, page.url) for page in FlatPage.objects.all()]
     return render_to_link_list(link_list)
 
@@ -120,6 +129,7 @@ def render_to_link_list(link_list):
     """
     return render_to_js_vardef('tinyMCELinkList', link_list)
 
+
 def render_to_image_list(image_list):
     """
     Returns a HttpResponse whose content is a Javscript file representing a
@@ -128,9 +138,11 @@ def render_to_image_list(image_list):
     """
     return render_to_js_vardef('tinyMCEImageList', image_list)
 
+
 def render_to_js_vardef(var_name, var_value):
     output = "var %s = %s" % (var_name, json.dumps(var_value))
     return HttpResponse(output, content_type='application/x-javascript')
+
 
 def filebrowser(request):
     try:
@@ -139,4 +151,4 @@ def filebrowser(request):
         fb_url = request.build_absolute_uri(urlresolvers.reverse('filebrowser:fb_browse'))
 
     return render_to_response('tinymce/filebrowser.js', {'fb_url': fb_url},
-            context_instance=RequestContext(request))
+                              context_instance=RequestContext(request))

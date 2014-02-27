@@ -14,7 +14,6 @@ import re
 from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpResponse
-from django.shortcuts import Http404
 from django.template import RequestContext
 from django.template.loader import render_to_string
 from django.utils.text import compress_string
@@ -24,10 +23,12 @@ import tinymce.settings
 
 safe_filename_re = re.compile("^[a-zA-Z][a-zA-Z0-9_/-]*$")
 
+
 def get_file_contents(filename):
     base_path = tinymce.settings.JS_ROOT
     if settings.DEBUG and settings.STATIC_ROOT:
         from django.contrib.staticfiles import finders
+
         base_path = finders.find('tiny_mce')
 
     try:
@@ -39,10 +40,12 @@ def get_file_contents(filename):
     except IOError:
         return ""
 
+
 def split_commas(str):
     if str == '':
         return []
     return str.split(",")
+
 
 def gzip_compressor(request):
     plugins = split_commas(request.GET.get("plugins", ""))
@@ -71,7 +74,7 @@ def gzip_compressor(request):
     cacheData = cache.get(cacheKey)
 
     if not cacheData is None:
-        if 'ETag' in cacheData:
+        if cacheData.has_key('ETag'):
             if_none_match = request.META.get('HTTP_IF_NONE_MATCH', None)
             if if_none_match == cacheData['ETag']:
                 response.status_code = 304
@@ -79,7 +82,7 @@ def gzip_compressor(request):
                 response['Content-Length'] = '0'
                 return response
 
-        if 'Last-Modified' in cacheData:
+        if cacheData.has_key('Last-Modified'):
             if_modified_since = request.META.get('HTTP_IF_MODIFIED_SINCE', None)
             if if_modified_since == cacheData['Last-Modified']:
                 response.status_code = 304

@@ -1,5 +1,5 @@
 function djangoFileBrowser(field_name, url, type, win) {
-    var url = "{{ fb_url }}?pop=2&type=" + type;
+    var url = "{{ fb_url }}?pop=2&type=" + type + '&tag_name=' + field_name;
 
     tinyMCE.activeEditor.windowManager.open(
         {
@@ -14,7 +14,7 @@ function djangoFileBrowser(field_name, url, type, win) {
         {
             'window': win,
             'input': field_name,
-            'editor_id': tinyMCE.selectedInstance.editorId
+            'editor_id': tinyMCE.activeEditor.contentAreaContainer.id
         }
     );
     return false;
